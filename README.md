@@ -32,11 +32,19 @@ KBTU 2026 · Taubayev Azamat, ID 26MD0347
 
 | Configuration | Total run time | Run tests step (slowest shard) | Run |
 |---|---|---|---|
-| 1 job, no sharding | TBD | TBD | [run](TBD) |
-| 4 shards + merge | TBD | TBD | [run](TBD) |
+| 1 job, no sharding | 1m 26s | 13s | [run #11](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/runs/45038721498) |
+| 4 shards + merge | 1m 32s | 7s | [run #16](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/runs/45040287980) |
 
-Numbers are the median of 3 `workflow_dispatch` runs on GitHub Actions (Actions → Playwright Tests → Run workflow, `shards` = 1 or 4), not from my laptop.
-Conclusion: TBD
+Median of 3 `workflow_dispatch` runs on `main` for each configuration (Actions → Playwright Tests → Run workflow, `shards` = 1 or 4), measured on GitHub Actions, not on my laptop:
+
+| Configuration | Runs (total / tests step) |
+|---|---|
+| 1 job | [#11](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/runs/45038721498) 1m 26s / 15s · [#12](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/runs/45039051986) 1m 27s / 13s · [#13](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/runs/45039246979) 1m 24s / 12s |
+| 4 shards | [#14](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/runs/45039673376) 1m 20s / 7s · [#15](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/runs/45039857346) 2m 28s / 66s · [#16](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/runs/45040287980) 1m 32s / 6s |
+
+In run #15 one shard needed 66 s for its tests, most likely a retried test, which is why the table uses the median.
+
+**Conclusion:** sharding cut the test step itself from 13 s to 7 s, but the total run time did not drop (1m 26s → 1m 32s). Each shard spends about 50 s on setup (starting the app in Docker, `npm ci`, installing Chromium), and that fixed cost is much larger than the 13 s that our 10 tests take against a local app. So 4 shards cost about four times the runner minutes for no gain at this suite size. Sharding pays off when the test step is several minutes long; for this suite, one job would be enough.
 
 ### Running locally
 

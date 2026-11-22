@@ -156,15 +156,14 @@ Getting around a bot check is not acceptable, so the fix was to stop depending o
 
 **Second attempt also failed**, in the step "Wait for API and UI": the API on `localhost:8091` never answered (curl exit code 7). The log of "Start Toolshop app (Docker)" showed why: *"web: The requested image's platform (linux/arm64) does not match the detected host platform (linux/amd64)"*. The authors' `testsmith/practice-software-testing-web` image is built for ARM only. Its Dockerfile is just `nginx:alpine` plus `vhost.conf`, so it was replaced with the official multi-platform `nginx:1.27-alpine` and the authors' config, copied to `sis2/ci/nginx-toolshop.conf`. The workflow now also checks that the seeded API returns "Combination Pliers" before the tests start, so a broken app setup fails early with a clear message.
 
-## Manual steps on GitHub (done by me)
+## Steps done on GitHub (by me)
 
-1. Push the branch `ci/playwright-pipeline` and open a pull request into `main`. There should be a run for the push and a run for the PR.
-2. In the second run, check that the `setup-node` log says the npm cache was restored.
-3. `forbidOnly` evidence: push a throwaway branch where one test is `test.only(`. The run must fail on the `.only` error. Save the run link, then delete the branch.
-4. Merge the PR into `main`. The badge shows a status only after the first run on `main`.
-5. Timing: Actions → Playwright Tests → Run workflow on `main`, three times with `shards = 1` and three times with `shards = 4`, one at a time (concurrency cancels a run if another one starts on the same branch). Take the medians and fill the Runtime table in `README.md` with the run links and a one-sentence conclusion.
-6. Open one trace from a `test-results-N` artefact in trace.playwright.dev, if there is one (traces appear only when a test was retried).
+1. Pushed the branch `ci/playwright-pipeline` and opened [PR #1](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/pull/1). The first runs for push and PR were red, so I sent the AI the failing logs, the JUnit report and the `test-results` artefacts. Two fixes followed (see above), after which all 10 checks were green, and I merged the PR into `main`.
+2. `forbidOnly` evidence: branch `ci/forbid-only-demo` with one `test(` changed to `test.only(`. [Its run](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/runs/45037685458) failed in all 4 shards on the forbidden `.only`. The branch was not merged.
+3. Timing: 3 manual runs with `shards = 1` and 3 with `shards = 4` on `main` (plus one extra 1-shard run, #10, with the same 1m 26s). The AI read the step timings from the public run pages and filled the Runtime table in `README.md`.
 
-## What I checked and changed myself
+## What I checked myself
 
-- _[fill in after the GitHub runs: what you checked, anything that failed, what you changed]_
+- I reviewed the failing CI runs: the Docker start log (which showed the arm64-only `web` image) and the shard 1 log, and I downloaded the JUnit report and the `test-results` artefacts so the cause could be found.
+- I checked that the PR run, after the fixes, had all 10 checks green before merging, and that the `test.only` run is red.
+- I ran the timing benchmark one run at a time, so concurrency did not cancel any run.

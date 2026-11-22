@@ -3,7 +3,7 @@ import { products } from '../data/user.factory';
 
 test.describe('TC-04 Compare two products', () => {
   // Stated comparison: Bolt Cutters are more expensive than Combination Pliers.
-  test('Bolt Cutters cost more than Combination Pliers', async ({ productPage }) => {
+  test.only('Bolt Cutters cost more than Combination Pliers', async ({ productPage }) => {
     await productPage.openByName(products.combinationPliers);
     const pliers = await productPage.capture();
 

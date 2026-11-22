@@ -1,0 +1,146 @@
+name: Playwright Tests
+
+on:
+  push:                # every push to every branch
+  pull_request:        # every PR
+  workflow_dispatch:   # manual runs, used for the timing benchmark
+    inputs:
+      shards:
+        description: 'Number of shards (1 = no sharding, for the before/after timing)'
+        type: choice
+        options: ['4', '1']
+        default: '4'
+
+# A new push to the same branch cancels the outdated run
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The Playwright project lives in the sis2/ folder of this course repository
+defaults:
+  run:
+    working-directory: sis2
+
+jobs:
+  test:
+    name: Tests (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false   # one failed shard does not cancel the others
+      matrix:
+        # 4 shards on push/PR; 1 shard only when "Run workflow" is started with shards = 1
+        shardIndex: ${{ fromJSON(inputs.shards == '1' && '[1]' || '[1, 2, 3, 4]') }}
+        shardTotal: ${{ fromJSON(inputs.shards == '1' && '[1]' || '[4]') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The public site blocks GitHub runners with a Cloudflare bot check, so every shard
+      # starts its own copy of the app (authors' prebuilt images) and tests that.
+      - name: Start Toolshop app (Docker)
+        run: docker compose -f ci/docker-compose.toolshop.yml up -d
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm                                   # caches ~/.npm, keyed on package-lock.json
+          cache-dependency-path: sis2/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Create and seed the database
+        run: |
+          for i in $(seq 1 60); do
+            docker compose -f ci/docker-compose.toolshop.yml exec -T mariadb mysqladmin ping -h localhost -u root -proot --silent && break
+            echo "waiting for MariaDB ($i)"; sleep 2
+          done
+          docker compose -f ci/docker-compose.toolshop.yml exec -T laravel-api php artisan migrate:refresh --seed --force
+          docker compose -f ci/docker-compose.toolshop.yml ps
+
+      - name: Wait for API and UI
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8091/status > /dev/null && break
+            echo "waiting for API ($i)"; sleep 3
+          done
+          curl -sf http://localhost:8091/status
+          # the seeded catalogue must be there, otherwise every test would fail later
+          curl -sf "http://localhost:8091/products?q=Combination%20Pliers" | grep -q "Combination Pliers" && echo "API has seed data"
+          for i in $(seq 1 90); do
+            curl -sf -o /dev/null http://localhost:4200 && break
+            echo "waiting for UI ($i)"; sleep 5
+          done
+          curl -sf -o /dev/null http://localhost:4200 && echo "UI is up"
+
+      - name: Run Playwright tests
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        env:
+          BASE_URL: http://localhost:4200
+          API_URL: http://localhost:8091
+
+      - name: App logs (on failure)
+        if: ${{ failure() }}
+        run: docker compose -f ci/docker-compose.toolshop.yml logs --tail=200
+
+      - name: Upload blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shardIndex }}
+          path: sis2/blob-report
+          retention-days: 1                            # intermediate file, only needed by merge-reports
+
+      - name: Upload traces and JUnit
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.shardIndex }}
+          path: |
+            sis2/test-results/
+            sis2/reports/
+          retention-days: 14
+
+  merge-reports:
+    name: Merge reports
+    if: ${{ !cancelled() }}   # merge even when tests failed: that is when the report matters
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sis2/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download blob reports
+        uses: actions/download-artifact@v4
+        with:
+          path: sis2/all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Merge into HTML + JUnit
+        run: npx playwright merge-reports --config merge.config.ts ./all-blob-reports
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: sis2/playwright-report
+          retention-days: 14
+
+      - name: Upload merged JUnit
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: sis2/reports/junit-merged.xml
+          retention-days: 14

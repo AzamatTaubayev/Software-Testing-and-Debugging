@@ -144,6 +144,16 @@ The sandbox could not reach practicesoftwaretesting.com (blocked by its network 
 
 The real proof is a green run on GitHub. That run, and the timing numbers, are done by me (see below).
 
+## First CI runs: what failed and what was changed
+
+The first two runs (push and PR) had the right structure: 4 shards, Merge reports and all artefacts. But shards 1–3 were red. The merged JUnit showed 4 failing tests, and the `error-context.md` and screenshots from `test-results-1…3` showed why: on the GitHub runner the site answered with a **Cloudflare page "Performing security verification — Verify you are human"** instead of the app. The public demo blocks data-centre IP addresses such as GitHub's. Another test (TC-03) found Combination Pliers out of stock on the shared demo, so the "+" button was disabled (`[disabled]="!product.in_stock"` in the app source).
+
+Getting around a bot check is not acceptable, so the fix was to stop depending on the shared public site in CI:
+
+- **`sis2/ci/docker-compose.toolshop.yml` (new):** a copy of the authors' `docker-compose.prod.yml` (github.com/testsmith-io/practice-software-testing) with their prebuilt images: MariaDB, `sprint5-api`, `web`, `sprint5-ui`. The authors run their own Playwright CI the same way.
+- **Workflow:** each shard starts the app, seeds the database, waits for `http://localhost:8091/status` and `http://localhost:4200`, and runs the tests with `BASE_URL`/`API_URL` pointing to localhost. On failure it prints the app logs.
+- **`fixtures/pages.fixture.ts`:** if an app build has no postcode lookup, the default address is kept instead of failing.
+
 ## Manual steps on GitHub (done by me)
 
 1. Push the branch `ci/playwright-pipeline` and open a pull request into `main`. There should be a run for the push and a run for the PR.

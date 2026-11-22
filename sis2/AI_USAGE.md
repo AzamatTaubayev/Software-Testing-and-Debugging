@@ -154,6 +154,8 @@ Getting around a bot check is not acceptable, so the fix was to stop depending o
 - **Workflow:** each shard starts the app, seeds the database, waits for `http://localhost:8091/status` and `http://localhost:4200`, and runs the tests with `BASE_URL`/`API_URL` pointing to localhost. On failure it prints the app logs.
 - **`fixtures/pages.fixture.ts`:** if an app build has no postcode lookup, the default address is kept instead of failing.
 
+**Second attempt also failed**, in the step "Wait for API and UI": the API on `localhost:8091` never answered (curl exit code 7). The log of "Start Toolshop app (Docker)" showed why: *"web: The requested image's platform (linux/arm64) does not match the detected host platform (linux/amd64)"*. The authors' `testsmith/practice-software-testing-web` image is built for ARM only. Its Dockerfile is just `nginx:alpine` plus `vhost.conf`, so it was replaced with the official multi-platform `nginx:1.27-alpine` and the authors' config, copied to `sis2/ci/nginx-toolshop.conf`. The workflow now also checks that the seeded API returns "Combination Pliers" before the tests start, so a broken app setup fails early with a clear message.
+
 ## Manual steps on GitHub (done by me)
 
 1. Push the branch `ci/playwright-pipeline` and open a pull request into `main`. There should be a run for the push and a run for the PR.

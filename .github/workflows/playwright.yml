@@ -59,6 +59,7 @@ jobs:
             echo "waiting for MariaDB ($i)"; sleep 2
           done
           docker compose -f ci/docker-compose.toolshop.yml exec -T laravel-api php artisan migrate:refresh --seed --force
+          docker compose -f ci/docker-compose.toolshop.yml ps
 
       - name: Wait for API and UI
         run: |
@@ -67,6 +68,8 @@ jobs:
             echo "waiting for API ($i)"; sleep 3
           done
           curl -sf http://localhost:8091/status
+          # the seeded catalogue must be there, otherwise every test would fail later
+          curl -sf "http://localhost:8091/products?q=Combination%20Pliers" | grep -q "Combination Pliers" && echo "API has seed data"
           for i in $(seq 1 90); do
             curl -sf -o /dev/null http://localhost:4200 && break
             echo "waiting for UI ($i)"; sleep 5

@@ -57,6 +57,20 @@ data/       user.factory.ts: unique user per run, product names
 - The built-in "compare" page: TC-04 compares through the product pages as the brief asks.
 - Visual layout and languages other than English.
 
+## CI
+
+[![Playwright Tests](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/workflows/playwright.yml/badge.svg?branch=main)](https://github.com/AzamatTaubayev/Software-Testing-and-Debugging/actions/workflows/playwright.yml)
+
+The suite runs on GitHub Actions on every push and pull request: 4 shards in parallel plus a job that merges their reports. The workflow is [`.github/workflows/playwright.yml`](../.github/workflows/playwright.yml) in the repository root. Why GitHub Actions, what each setting does and the before/after timing are in the [repository README](../README.md#ci). How AI was used for the pipeline: [AI_USAGE.md](AI_USAGE.md).
+
+CI mode locally:
+
+```bash
+npm ci
+npx playwright install --with-deps chromium
+CI=true npx playwright test
+```
+
 ## AI use (Level 1)
 
 See [Prompt.md](Prompt.md) and [Review.md](Review.md). Screenshots are in `screenshots/`.

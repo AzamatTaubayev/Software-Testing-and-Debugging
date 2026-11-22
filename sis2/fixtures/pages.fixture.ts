@@ -7,7 +7,7 @@ import { CartPage } from '../pages/cart.page';
 import { CheckoutPage } from '../pages/checkout.page';
 import { newCustomer, User } from '../data/user.factory';
 
-const API_URL = process.env.API_URL ?? 'https://api.practicesoftwaretesting.com';
+const API_URL = process.env.API_URL || 'https://api.practicesoftwaretesting.com';
 
 type Fixtures = {
   loginPage: LoginPage;
